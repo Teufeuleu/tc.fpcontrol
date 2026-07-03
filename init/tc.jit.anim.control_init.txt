@@ -1,3 +1,1 @@
-max setdefinepackage tc.jit.anim.control;
-max define tc.jit.anim.control v8 @filename tc.controller.js;
-max setdefinepackage "" "";
+max define tc.fpcontrol v8 @filename tc.controller.js;
