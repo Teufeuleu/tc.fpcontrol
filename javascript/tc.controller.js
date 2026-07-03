@@ -94,8 +94,15 @@ class Controller {
 		this.flymode_applyed = false; // Flag
 		this.control_mode; // 'cam' if the camera is the target, 'obj' otherwise
 
-		this.world_up = [0, 1, 0];
-		this.camera_node = new JitterObject("jit.proxy");
+        this.world_up = [0, 1, 0];
+        this.camera_target = {
+            name: '',
+            class: '',
+            anim: '',
+        }
+        this.camera_node_implicit = new JitterObject("jit.anim.node"); // Used if camera isn't attached to an anim.node
+        this.camera_node_implicit.name = "camera_node_implicit";
+        this.camera_node = new JitterObject("jit.proxy"); // Either proxy of a jit.anim.node defined by user, or of this.camera_node_implicit
 		this.cam_direction, this.cam_up, this.cam_right;
 
 		this.camera_base_matrix;
@@ -129,9 +136,9 @@ class Controller {
 
 	// Taking control over a new target
 	control(obj_name, ctrl_mode) {
-		if (this.camera_node.class == "") {
+		if (!this.camera_target.name) {
 			error("No camera defined. Cannot control object.\n");
-			return;
+			return false;
 		}
 
 		let new_target;
@@ -165,7 +172,9 @@ class Controller {
 			this.target.send("anim", this.pitch_node.name);
 
 			// Apply specific rules depending on if controlling the camera or an object
-			if (this.control_mode == "cam") {
+            if (this.control_mode == "cam") {
+                // If this.camera() is set before the jit.world starts, there is a chance that camera_node is bound to the wrong node.
+                // this.camera(this.camera_target.name);
 				this.main_node.movemode = "local";
 				this.main_node.turnmode = "local";
 				this.pitch_node.turnmode = "parent";
@@ -178,7 +187,7 @@ class Controller {
 				// So we need the cam base matrix
 				this.main_node.movemode = "world";
 				this.main_node.turnmode = "world";
-				this.pitch_node.turnmode = "world";
+                this.pitch_node.turnmode = "world";
 				this.get_cam_base_matrix();
 			}
 
@@ -189,22 +198,77 @@ class Controller {
 			this.target.send("transform", this.pitch_node.worldtransform);
 			this.target.name = "";
 		}
-		outlet(0, "control", obj_name, this.target.name);
+        outlet(0, "control", obj_name, this.target.name);
+        return true;
 	}
 
-	camera(obj_name) {
-		const cam_anim_node_name = get_anim_node(obj_name, this.pitch_node.name);
-		if (cam_anim_node_name != undefined) {
-			this.camera_node.name = cam_anim_node_name;
-			camera_node = this.camera_node.name;
-			this.camera_node.send("animmode", "parent");
-			this.get_cam_base_matrix();
-		}
-	}
+    camera(obj_name) {
+        if (obj_name === this.camera_target.name) return;
+        // Is it a camera or a node?
+        const proxy = new JitterObject("jit.proxy");
+    	proxy.name = obj_name;
+    	const proxy_class = proxy.class;
+        let target = null;
+        if (proxy_class == "jit_anim_node") {
+            // If user passed an anim.node as camera, we use it directly.
+            target = obj_name;
+        } else if (proxy_class == "jit_gl_camera") {
+            // If it's a jit_gl_camera, we get its world transform from its parent node (whether it is implicit or user-defined),
+            const cam_anim = new JitterObject("jit.proxy");
+            cam_anim.name = proxy.send("getanim");
+            const transform = cam_anim.send("getworldtransform");
+            cam_anim.freepeer();
+            // Then we attach our camera_node_implicit to the camera and restore its world transform
+            // this.camera_node_implicit.anim_reset();
+            proxy.send("anim_reset");
+            proxy.send("anim", this.camera_node_implicit.name);
+            this.camera_node_implicit.transform = transform;
+            target = this.camera_node_implicit.name;
+        }
+        if (target) {
+            this.camera_node.name = target;
+    		camera_node = target;
+    		this.camera_node.send("animmode", "world");
+            this.get_cam_base_matrix();
+            this.camera_target.name = proxy.name;
+            this.camera_target.class = proxy.class;
+            this.camera_target.anim = proxy.anim;
+            camera_node = target;
+        } else {
+            this.unbind_camera();
+        }
+		proxy.freepeer();
+    }
+
+    unbind_camera() {
+        if (this.camera_target.name) {
+            if (this.camera_target.class === "jit_anim_node") {
+                // If user passed an anim node as camera target, we just unbind our proxy from it
+                this.camera_node.name = "";
+            } else if (this.camera_target.class === "jit_gl_camera") {
+                // If it was a camera, we set it back as it was, but with the current transform
+                const transform = this.camera_node.send("getworldtransform");
+                const cam = new JitterObject("jit_proxy");
+                cam.name = this.camera_target.name;
+                cam.send("anim");
+                cam.send("anim_reset");
+                const cam_anim = new JitterObject("jit_proxy");
+                cam_anim.name = cam.send("getanim");
+                cam_anim.send("transform", transform);
+                cam.freepeer();
+                cam_anim.freepeer();
+            }
+            this.control();
+            this.camera_target.name = "";
+            this.camera_target.class = "";
+            this.camera_target.anim = "";
+            camera_node = "";
+        }
+    }
 
 	get_cam_base_matrix() {
 		if (this.camera_node.name != "") {
-			this.cam_direction = this.camera_node.send("getdirection");
+            this.cam_direction = this.camera_node.send("getdirection");
 			this.cam_direction[1] = 0;
 			this.cam_direction = normalize(this.cam_direction);
 			this.cam_right = normalize(cross(this.cam_direction, this.world_up));
@@ -311,7 +375,8 @@ class Controller {
 		if (this.target.name != "") {
 			this.target.send("anim");
 			this.target.send("transform", this.pitch_node.worldtransform);
-		}
+        }
+        this.camera_node_implicit.freepeer();
 		this.main_node.freepeer();
 		this.main_drive.freepeer();
 		this.pitch_node.freepeer();
@@ -344,8 +409,8 @@ function control(obj_name) {
 // Select which camera to control
 function control_camera(obj_name) {
 	if (obj_name !== undefined) {
-		ctlr.control(obj_name, "cam");
-		do_show_bounds(0);
+		const answer = ctlr.control(obj_name, "cam");
+		if (answer) do_show_bounds(0);
 	}
 }
 
@@ -394,6 +459,13 @@ function turn(x, y, z) {
 
 function elev(v) {
 	ctlr.elev(v);
+}
+
+function anim_move(x, y, z, t) {
+    ctlr.move(x, y, z);
+}
+function anim_turn(x, y, z, t) {
+    ctlr.turn(x, y, z);
 }
 
 function set_ease(v) {
