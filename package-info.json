@@ -1,0 +1,28 @@
+{
+	"name" : "tc.jit.anim.control",
+	"displayname" : "",
+	"version" : "0.0.1",
+	"author" : "Théophile Clet",
+	"authors" : [  ],
+	"description" : "Helpers to drive jitter objects from user inputs",
+	"tags" : ["gamepad", "jit.anim.node", "jit.anim.drive", "v8"],
+	"website" : "",
+	"extends" : "",
+	"extensible" : 0,
+	"max_version_min" : "9.1.0",
+	"max_version_max" : "none",
+	"os" : 	{
+		"macintosh" : 		{
+			"min_version" : "10.11.x",
+			"platform" : [ "x64", "aarch64" ]
+		}
+,
+		"windows" : 		{
+			"min_version" : "10",
+			"platform" : [ "x64" ]
+		}
+
+	}
+,
+	"homepatcher" : ""
+}
