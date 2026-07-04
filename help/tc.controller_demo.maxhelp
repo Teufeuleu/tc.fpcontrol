@@ -9,7 +9,7 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 636.0, 100.0, 1444.0, 848.0 ],
+        "rect": [ 334.0, 100.0, 1444.0, 848.0 ],
         "integercoordinates": 1,
         "boxes": [
             {
@@ -868,11 +868,11 @@
                 "box": {
                     "id": "obj-4",
                     "maxclass": "newobj",
-                    "numinlets": 2,
-                    "numoutlets": 2,
-                    "outlettype": [ "", "" ],
-                    "patching_rect": [ 239.0, 374.0, 55.0, 22.0 ],
-                    "text": "route init"
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 211.0, 405.0, 125.0, 22.0 ],
+                    "text": "loadmess controllable"
                 }
             },
             {
@@ -882,8 +882,8 @@
                     "maxclass": "comment",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 315.0, 532.0, 272.0, 24.0 ],
-                    "text": "Select which object to control in camera space"
+                    "patching_rect": [ 315.0, 532.0, 256.0, 24.0 ],
+                    "text": "Select which object to control in view space"
                 }
             },
             {
@@ -1145,12 +1145,12 @@
             {
                 "box": {
                     "id": "obj-5",
-                    "linecount": 27,
+                    "linecount": 26,
                     "maxclass": "comment",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 611.0, 459.0, 568.0, 368.0 ],
-                    "text": "HOW TO USE IN YOUR OWN PATCH\n\n0. Add [tc.fpcontrol] and, depending on the controls you want, [p mouse_keyboard_controls] and/or [gamepad.drive] . You can also create your own input method as it relies on simple 'move X 0 Z' and 'turn X Y 0' messages\n\n1. In order to initialize [tc.fpcontrol] you need to send 'camera' followed by the name of your jit.gl.camera or a jit.anid.node attached to it. Will serve as the basis for moving objects in view space. This is necessary to control any object. A caveheat is that this message must be sent after the world has been initalized. You can [route init] from [jit.world] right outlet for that.\n\n2. Send 'controllable' to get a list of all controllable jit.gl objects in your patch.\n \n4. Send 'control_camera' followed by the the name of your jit.gl.camera or a jit.anid.node attached to it to control the camera. If flymode is disabled, the camera will remain on the same elevation (Y world pos) unless using the elevation controls (gamepad triggers). If flymode is enabled, the camera will go in the direction it faces and elevation controls will make it move up-down relatively to that direction. \n\n5. Send 'control' followed by the name of a jit.gl or jit.anim.node object to control it in camera space. When using the name of a jit.gl object, its top-level user-created jit.anim.node will be used as entry point for the controls from v8. If there is no user-created jit.anim.node used by this object, its implicit internal jit.anim.node will be used as entry point. When using the name of a jit.anim.node directly, it will be the entry point for the controls comming from v8. If show_bounds is enabled and the target object is a bounds-compatible jit.gl object (or a jit.anim.node controlling bounds-compatible jit.gl objects), its bounds will be displayed\n\n6. Use the mouse+keyboard or gamepad to control the object or camera."
+                    "patching_rect": [ 611.0, 459.0, 568.0, 355.0 ],
+                    "text": "HOW TO USE IN YOUR OWN PATCH\n\n0. Add [tc.fpcontrol] and, depending on the controls you want, [p mouse_keyboard_controls] and/or [gamepad.drive] . You can also create your own input method as it relies on simple 'move X 0 Z' and 'turn X Y 0' messages\n\n1. In order to use [tc.fpcontrol] you to tell it which camera (or jit.anid.node attached to it) to use. You can pass that as an attribute as shown here. This camera/anim.node will serve as the basis for moving objects in view space. This is necessary to control any object.\n\n2. Send 'controllable' to get a list of all controllable jit.gl objects in your patch.\n \n4. Send 'control_camera' followed by the the name of your jit.gl.camera or a jit.anid.node attached to it to control the camera. If flymode is disabled, the camera will remain on the same elevation (Y world pos) unless using the elevation controls (gamepad triggers). If flymode is enabled, the camera will go in the direction it faces and elevation controls will make it move up-down relatively to that direction. \n\n5. Send 'control' followed by the name of a jit.gl or jit.anim.node object to control it in camera space. When using the name of a jit.gl object, its top-level user-created jit.anim.node will be used as entry point for the controls from v8. If there is no user-created jit.anim.node used by this object, its implicit internal jit.anim.node will be used as entry point. When using the name of a jit.anim.node directly, it will be the entry point for the controls comming from v8. If show_bounds is enabled and the target object is a bounds-compatible jit.gl object (or a jit.anim.node controlling bounds-compatible jit.gl objects), its bounds will be displayed\n\n6. Use the mouse+keyboard or gamepad to control the object or camera."
                 }
             },
             {
@@ -1855,7 +1855,7 @@
             {
                 "box": {
                     "id": "obj-56",
-                    "items": [ "jit.gl.gridshape", "torus", ",", "jit.gl.plato", "plato", ",", "jit.gl.gridshape", "plane", ",", "jit.gl.light", "u966000628", ",", "jit.gl.model", "model" ],
+                    "items": "<empty>",
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -2433,17 +2433,6 @@
             },
             {
                 "box": {
-                    "id": "obj-125",
-                    "maxclass": "message",
-                    "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 239.0, 405.0, 143.0, 22.0 ],
-                    "text": "camera cam, controllable"
-                }
-            },
-            {
-                "box": {
                     "color": [ 0.0, 0.694117647058824, 0.482352941176471, 1.0 ],
                     "filename": "tc.controller.js",
                     "id": "obj-109",
@@ -2451,12 +2440,12 @@
                     "numinlets": 1,
                     "numoutlets": 2,
                     "outlettype": [ "", "" ],
-                    "patching_rect": [ 53.0, 448.0, 95.0, 22.0 ],
+                    "patching_rect": [ 53.0, 448.0, 149.0, 22.0 ],
                     "saved_object_attributes": {
                         "embed": 0,
                         "parameter_enable": 0
                     },
-                    "text": "tc.fpcontrol",
+                    "text": "tc.fpcontrol @camera cam",
                     "textfile": {
                         "filename": "tc.controller.js",
                         "flags": 0,
@@ -2503,13 +2492,12 @@
                 "box": {
                     "dontreplace": 1,
                     "id": "obj-60",
-                    "linecount": 2,
                     "maxclass": "message",
                     "numinlets": 2,
                     "numoutlets": 1,
                     "outlettype": [ "" ],
-                    "patching_rect": [ 53.0, 647.0, 222.0, 35.0 ],
-                    "text": "control camera_node_implicit camera_node_implicit"
+                    "patching_rect": [ 53.0, 647.0, 222.0, 22.0 ],
+                    "text": "control torus u787003285"
                 }
             },
             {
@@ -2569,7 +2557,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "parameter_enable": 0,
-                    "patching_rect": [ 53.0, 346.0, 97.0, 22.0 ],
+                    "patching_rect": [ 53.0, 313.0, 97.0, 22.0 ],
                     "text_width": 46.0
                 }
             },
@@ -2582,7 +2570,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "parameter_enable": 0,
-                    "patching_rect": [ 53.0, 318.0, 87.0, 22.0 ],
+                    "patching_rect": [ 53.0, 285.0, 87.0, 22.0 ],
                     "text_width": 63.0
                 }
             },
@@ -2595,7 +2583,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "parameter_enable": 0,
-                    "patching_rect": [ 53.0, 376.0, 121.0, 22.0 ]
+                    "patching_rect": [ 53.0, 343.0, 121.0, 22.0 ]
                 }
             },
             {
@@ -2608,6 +2596,19 @@
                     "outlettype": [ "" ],
                     "parameter_enable": 0,
                     "patching_rect": [ 35.5, 63.0, 83.0, 22.0 ],
+                    "text_width": 61.0
+                }
+            },
+            {
+                "box": {
+                    "attr": "camera",
+                    "id": "obj-7",
+                    "maxclass": "attrui",
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "parameter_enable": 0,
+                    "patching_rect": [ 53.0, 371.0, 186.0, 22.0 ],
                     "text_width": 61.0
                 }
             }
@@ -2635,12 +2636,6 @@
                 "patchline": {
                     "destination": [ "obj-109", 0 ],
                     "source": [ "obj-11", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-109", 0 ],
-                    "source": [ "obj-125", 0 ]
                 }
             },
             {
@@ -2699,12 +2694,6 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-4", 0 ],
-                    "source": [ "obj-3", 2 ]
-                }
-            },
-            {
-                "patchline": {
                     "destination": [ "obj-32", 0 ],
                     "source": [ "obj-31", 0 ]
                 }
@@ -2729,7 +2718,7 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-125", 0 ],
+                    "destination": [ "obj-109", 0 ],
                     "source": [ "obj-4", 0 ]
                 }
             },
@@ -2761,6 +2750,12 @@
                 "patchline": {
                     "destination": [ "obj-109", 0 ],
                     "source": [ "obj-62", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-109", 0 ],
+                    "source": [ "obj-7", 0 ]
                 }
             }
         ],

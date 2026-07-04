@@ -22,8 +22,12 @@ autowatch = 1;
 
 outlets = 2;
 
-var drawto = "";
-declareattribute({ name: "drawto", setter: "setdrawto" });
+// var drawto = "";
+// declareattribute({ name: "drawto", setter: "setdrawto" });
+
+let world_bangs = false; // is the world banging?
+const ctx_finder = require("implicit.context.js");
+ctx_finder.register_drawto(this, dosetdrawto, set_root);
 
 var ease = 0.1;
 declareattribute({
@@ -35,10 +39,10 @@ declareattribute({
 	default: 0.1,
 });
 
-var camera_node = "";
+var camera = "";
 declareattribute({
-	name: "camera_node",
-	setter: "camera",
+	name: "camera",
+	setter: "set_camera",
 	label: "Camera anim node",
 	type: "string",
 });
@@ -227,13 +231,12 @@ class Controller {
         }
         if (target) {
             this.camera_node.name = target;
-    		camera_node = target;
     		this.camera_node.send("animmode", "world");
             this.get_cam_base_matrix();
             this.camera_target.name = proxy.name;
             this.camera_target.class = proxy.class;
             this.camera_target.anim = proxy.anim;
-            camera_node = target;
+            camera = target;
         } else {
             this.unbind_camera();
         }
@@ -248,11 +251,11 @@ class Controller {
             } else if (this.camera_target.class === "jit_gl_camera") {
                 // If it was a camera, we set it back as it was, but with the current transform
                 const transform = this.camera_node.send("getworldtransform");
-                const cam = new JitterObject("jit_proxy");
+                const cam = new JitterObject("jit.proxy");
                 cam.name = this.camera_target.name;
                 cam.send("anim");
                 cam.send("anim_reset");
-                const cam_anim = new JitterObject("jit_proxy");
+                const cam_anim = new JitterObject("jit.proxy");
                 cam_anim.name = cam.send("getanim");
                 cam_anim.send("transform", transform);
                 cam.freepeer();
@@ -262,7 +265,7 @@ class Controller {
             this.camera_target.name = "";
             this.camera_target.class = "";
             this.camera_target.anim = "";
-            camera_node = "";
+            camera = "";
         }
     }
 
@@ -388,9 +391,11 @@ class Controller {
 loadbang();
 
 // Select the object to use as basis for view-space transforms
-function camera(name) {
-	ctlr.camera(name);
-	camera_node = ctlr.camera_node.name;
+function set_camera(name) {
+	camera = name;
+	if (world_bangs) {
+	    ctlr.camera(name);
+	}
 }
 
 // Select which object to control in view-space
@@ -511,7 +516,9 @@ function loadbang() {
 
 function notifydeleted() {
 	ctlr.destroy();
-	implicit_tracker.freepeer();
+	ctx_finder.dispose();
+	if (ctx_lstnr) ctx_lstnr.freepeer();
+	// implicit_tracker.freepeer();
 }
 
 /////////////////////////////////////////////
@@ -647,29 +654,75 @@ multiplyMatrixVector.local = 1;
 /////////////////////////////////////////////
 // GL Context
 /////////////////////////////////////////////
-
-let implicitdrawto = "";
-let explicitdrawto = false;
-const implicit_tracker = new JitterObject("jit_gl_implicit");
-const implicit_lstnr = new JitterListener(
-	implicit_tracker.name,
-	implicit_callback
-);
-
-function implicit_callback(event) {
-	if (!explicitdrawto && implicitdrawto != implicit_tracker.drawto[0]) {
-		// important! drawto is an array so get first element
-		implicitdrawto = implicit_tracker.drawto[0];
-		dosetdrawto(implicitdrawto);
-	}
+let ctx_root;
+let ctx_lstnr;
+function set_root(new_root) {
+    ctx_root = new_root;
+    if (ctx_lstnr) {
+        ctx_lstnr.freepeer();
+        ctw_lstnr = null;
+    }
+    ctx_lstnr = new JitterListener(new_root, ctx_callback);
 }
-implicit_callback.local = 1;
+set_root.local = 1;
 
-function setdrawto(val) {
-	explicitdrawto = true;
-	dosetdrawto(val);
+function ctx_callback(event) {
+    switch (event.eventname) {
+        case "swap": case "draw":
+            if (!world_bangs) {
+                // First world bang: world initialized, we can set the camera
+                world_bangs = true;
+                set_camera(camera);
+            }
+            break;
+        // case "mouse":   
+
+        //     break;
+        // case "mouseidle": 
+            
+        //     break;
+
+        // case "keydown":
+        //     // FF_Utils.Print("KEYDOWN", (event.args[0]));
+        //     break;
+
+        // case "willfree":
+        //     break;
+            
+        default:
+        //     post(event.args); post();
+            break;
+    }
 }
-setdrawto.local = 1;
+ctx_callback.local = 1;
+
+// let implicitdrawto = "";
+// let explicitdrawto = false;
+// const implicit_tracker = new JitterObject("jit_gl_implicit");
+// const implicit_lstnr = new JitterListener(
+// 	implicit_tracker.name,
+// 	implicit_callback
+// );
+// const ctx_proxy = new JitterObject("jit.proxy");
+
+// function implicit_callback(event) {
+// 	if (!explicitdrawto && implicitdrawto != implicit_tracker.drawto[0]) {
+// 		// important! drawto is an array so get first element
+// 		implicitdrawto = implicit_tracker.drawto[0];
+// 		dosetdrawto(implicitdrawto);
+// 	}
+// }
+// implicit_callback.local = 1;
+
+// function setdrawto(val) {
+//     if (val) {
+//         explicitdrawto = true;
+//         dosetdrawto(val);
+//     } else {
+//         explicitdrawto = false;
+//     }
+// }
+// setdrawto.local = 1;
 
 function dosetdrawto(arg) {
 	if (arg === drawto || !arg) {
@@ -679,5 +732,7 @@ function dosetdrawto(arg) {
 
 	drawto = arg;
 	ctlr.set_drawto(drawto);
+	ctx_proxy.name = drawto;
+	
 }
-dosetdrawto.local = 1;
+// dosetdrawto.local = 1;
