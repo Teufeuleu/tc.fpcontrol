@@ -55,6 +55,15 @@ declareattribute({
 	default: 0,
 });
 
+var controlmode = 0;
+declareattribute({
+    name: "controlmode",
+    setter: "set_controlmode",
+    style: "enumindex",
+    enumvals: ["View space", "Object space"],
+    label: "Control Mode",
+})
+
 var show_bounds = 1;
 declareattribute({
 	name: "show_bounds",
@@ -96,7 +105,7 @@ class Controller {
 		this.ease = 0.1; // anim.drive easing
 		this.flymode = false;
 		this.flymode_applyed = false; // Flag
-		this.control_mode; // 'cam' if the camera is the target, 'obj' otherwise
+		this.control_obj_type; // 'cam' if the camera is the target, 'obj' otherwise
 
         this.world_up = [0, 1, 0];
         this.camera_target = {
@@ -139,7 +148,7 @@ class Controller {
 	}
 
 	// Taking control over a new target
-	control(obj_name, ctrl_mode) {
+	control(obj_name, obj_type) {
 		if (!this.camera_target.name) {
 			error("No camera defined. Cannot control object.\n");
 			return false;
@@ -154,7 +163,7 @@ class Controller {
 			new_target != undefined &&
 			(this.target.name != "" || this.target.name != new_target)
 		) {
-			this.control_mode = ctrl_mode;
+			this.control_obj_type = obj_type;
 
 			if (this.target.name != "") {
 				const transform = this.target.send("getworldtransform"); // Get the current targets tranfsorm,
@@ -176,23 +185,28 @@ class Controller {
 			this.target.send("anim", this.pitch_node.name);
 
 			// Apply specific rules depending on if controlling the camera or an object
-            if (this.control_mode == "cam") {
+            if (this.control_obj_type == "cam") {
                 // If this.camera() is set before the jit.world starts, there is a chance that camera_node is bound to the wrong node.
                 // this.camera(this.camera_target.name);
 				this.main_node.movemode = "local";
 				this.main_node.turnmode = "local";
 				this.pitch_node.turnmode = "parent";
-				this.has_rotated = false;
 				this.set_flymode(this.flymode);
 			} else {
 				this.flymode_applyed = false;
 				// When controlling an object, we convert the translation vector
 				// from screen space to world space in this.move
 				// So we need the cam base matrix
-				this.main_node.movemode = "world";
-				this.main_node.turnmode = "world";
-                this.pitch_node.turnmode = "world";
-				this.get_cam_base_matrix();
+				if (controlmode == 0) {
+    				this.main_node.movemode = "world";
+    				this.main_node.turnmode = "world";
+                    this.pitch_node.turnmode = "world";
+    				this.get_cam_base_matrix();
+				} else {
+                    this.main_node.movemode = "local";
+    				this.main_node.turnmode = "local";
+                    this.pitch_node.turnmode = "parent";
+				}
 			}
 
 			// No target
@@ -286,7 +300,7 @@ class Controller {
 
 	move(x, y, z) {
 		let translat_vec = [x, y, z];
-		if (this.control_mode == "obj") {
+		if (this.control_obj_type == "obj" && controlmode == 0) {
 			let cam_x_rot = this.camera_node.send("getrotatexyz")[0];
 			// Inverse translation direction if cam is upside down
 			if (cam_x_rot < -90 || cam_x_rot > 90) {
@@ -300,11 +314,11 @@ class Controller {
 
 	turn(x, y, z) {
 		let rot_vec = [x, y, z];
-		if (this.control_mode == "obj") {
+		if (this.control_obj_type == "obj") {
 			rot_vec = multiplyMatrixVector(this.camera_base_matrix, [-x, 0, 0]);
 			rot_vec[1] = -y;
 		}
-		if (this.flymode && this.control_mode == "cam") {
+		if (this.flymode && this.control_obj_type == "cam") {
 			// When flymode is enabled, we apply all rotations to the main_node
 			// so that the cam can move toward the direction it is pointing to
 			this.main_drive.turn(rot_vec[0], rot_vec[1], 0);
@@ -331,7 +345,7 @@ class Controller {
 	}
 
 	apply_flymode() {
-		if (this.control_mode == "cam") {
+		if (this.control_obj_type == "cam") {
 			if (this.flymode) {
 				// When enabling flymode, we move all rotations to main_node
 				this.main_node.rotatexyz = [
@@ -370,7 +384,7 @@ class Controller {
 
 	resync() {
 		if (this.target.name != "") {
-			this.control(this.target.name, this.control_mode);
+			this.control(this.target.name, this.control_obj_type);
 		}
 	}
 
@@ -477,16 +491,26 @@ function set_ease(v) {
 	ctlr.set_ease(v);
 	ease = v;
 }
+set_ease.local = 1;
 
 function set_flymode(v) {
 	flymode = v == undefined ? !flymode : v == 1; // If flymode with no argument is provided, act as a toggle
 	ctlr.set_flymode(flymode);
 }
+set_flymode.local = 1;
 
 function set_show_bounds(v) {
 	show_bounds = v == true;
 	// ctlr.show_bounds = show_bounds;
 	do_show_bounds(show_bounds);
+}
+set_show_bounds.local = 1;
+
+function set_controlmode(v) {
+    const new_val = v > 0 ? 1 : 0;
+    if (controlmode === new_val) return;
+    controlmode = new_val;
+    ctlr.control(ctlr.target.name, ctlr.control_obj_type);
 }
 
 function do_show_bounds(v) {

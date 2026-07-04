@@ -9,9 +9,20 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 334.0, 100.0, 1444.0, 848.0 ],
+        "rect": [ 131.0, 100.0, 1444.0, 848.0 ],
         "integercoordinates": 1,
         "boxes": [
+            {
+                "box": {
+                    "id": "obj-9",
+                    "maxclass": "message",
+                    "numinlets": 2,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 361.0, 405.0, 75.0, 22.0 ],
+                    "text": "camera cam"
+                }
+            },
             {
                 "box": {
                     "id": "obj-21",
@@ -1855,7 +1866,7 @@
             {
                 "box": {
                     "id": "obj-56",
-                    "items": "<empty>",
+                    "items": [ "jit.gl.gridshape", "torus", ",", "jit.gl.plato", "plato", ",", "jit.gl.gridshape", "plane", ",", "jit.gl.light", "u034001065", ",", "jit.gl.model", "model" ],
                     "maxclass": "umenu",
                     "numinlets": 1,
                     "numoutlets": 3,
@@ -2461,8 +2472,8 @@
                     "maxclass": "comment",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 444.0, 987.0, 567.0, 114.0 ],
-                    "text": "TODO:\n- use worldtolocal anim.node feature instead of manually calculating transform matrix?\n- better object rotation logic?\n- other ideas?\n\nWHAT DOESN'T WORK\n- using the implicit anim node of a jit.gl.camera doesn't work (need to declare an explicit anim node)\n- controlling a skybox doesn't work although it's technically possible and works when done manually"
+                    "patching_rect": [ 612.0, 834.0, 567.0, 114.0 ],
+                    "text": "TODO:\n- use worldtolocal anim.node feature instead of manually calculating transform matrix?\n- better object rotation logic?\n- other ideas?\n\nWHAT DOESN'T WORK\n- using the implicit anim node of a jit.gl.camera doesn't work (need to create an anim.node for it)\n- controlling a skybox doesn't work although it's technically possible and works when done manually"
                 }
             },
             {
@@ -2497,7 +2508,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 53.0, 647.0, 222.0, 22.0 ],
-                    "text": "control torus u787003285"
+                    "text": "control u998010725 u998010725"
                 }
             },
             {
@@ -2756,6 +2767,12 @@
                 "patchline": {
                     "destination": [ "obj-109", 0 ],
                     "source": [ "obj-7", 0 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-109", 0 ],
+                    "source": [ "obj-9", 0 ]
                 }
             }
         ],
