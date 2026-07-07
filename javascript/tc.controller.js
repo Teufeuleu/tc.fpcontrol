@@ -22,9 +22,6 @@ autowatch = 1;
 
 outlets = 2;
 
-// var drawto = "";
-// declareattribute({ name: "drawto", setter: "setdrawto" });
-
 let world_bangs = false; // is the world banging?
 const ctx_finder = require("implicit.context.js");
 ctx_finder.register_drawto(this, dosetdrawto, set_root);
@@ -94,7 +91,6 @@ const ANIMABLE_GL_OBJECTS = [
 	"jit_gl_camera",
 ];
 
-let controlled_gl_objects = []; // Used for enabling.disabling drawbounds on object(s) animated by the controller
 let controllable_objects = []; // Used for listing all controllable objects in a patch
 
 let top_level_patcher;
@@ -107,13 +103,15 @@ class Controller {
 		this.flymode_applyed = false; // Flag
 		this.control_obj_type; // 'cam' if the camera is the target, 'obj' otherwise
 
+		this.root_anim_node = null; // The implicit drawto context anim node
+
         this.world_up = [0, 1, 0];
         this.camera_target = {
             name: '',
             class: '',
             anim: '',
         }
-        this.camera_node_implicit = new JitterObject("jit.anim.node"); // Used if camera isn't attached to an anim.node
+        this.camera_node_implicit = new JitterObject("jit.anim.node"); // Used if camera isn't attached to an anim.node (using the pre-made anim node of a jit.gl.camera doesn't work for some reason, so we use our own "implicit" one)
         this.camera_node_implicit.name = "camera_node_implicit";
         this.camera_node = new JitterObject("jit.proxy"); // Either proxy of a jit.anim.node defined by user, or of this.camera_node_implicit
 		this.cam_direction, this.cam_up, this.cam_right;
@@ -134,7 +132,8 @@ class Controller {
 		this.main_drive.targetname = this.main_node.name;
 
 		// pitch_node used with pitch_drive for pitch rotation (over the objects local x axis)
-		this.pitch_node = new JitterObject("jit.anim.node");
+        this.pitch_node = new JitterObject("jit.anim.node");
+        this.pitch_node.name = "fp_pitch_node";
 		this.pitch_node.anim = this.main_node.name;
 		this.pitch_node.turnmode = "parent";
 		this.pitch_node.movemode = "parent";
@@ -144,7 +143,27 @@ class Controller {
 		this.pitch_drive.ease = this.ease;
 		this.pitch_drive.targetname = this.pitch_node.name;
 
-		this.target = new JitterObject("jit.proxy"); // Stores the object to control
+        this.target = new JitterObject("jit.proxy"); // Stores the object to control (always an anim.node)
+        this.last_target_anim_node = null;  // Stores which parent anim.node was bound to our target, so we can restore it later
+        this.target_type; // Class of the target object
+
+        // For displaying bounds, we rely on our own jit.gl.mesh cube. It's simpler than keeping track of each objects draw_bounds attribute, and we can customize its appearance.
+        this.show_bounds = show_bounds;
+        this.cube_matrix = new JitterMatrix(3, "float32", 8);
+        const cube_points = new Float32Array([-1., -1., 1., 1., -1., 1., 1., 1., 1., -1., 1., 1., -1., -1., -1., 1., -1., -1., 1., 1., -1., -1., 1., -1.]);
+        this.cube_matrix.copyarraytomatrix(cube_points);
+        this.cube_indexes = new JitterMatrix(1, "char", 24);
+        const cube_point_indexes = new Uint8Array([0, 1, 1, 2, 2, 3, 3, 0, 0, 4, 1, 5, 2, 6, 3, 7, 4, 5, 5, 6, 6, 7, 7, 4]);
+        this.cube_indexes.copyarraytomatrix(cube_point_indexes);
+        this.bounds = new JitterObject("jit.gl.mesh");
+        this.bounds.drawto = drawto;
+        this.bounds.draw_mode = "lines";
+        this.bounds.vertex_matrix(this.cube_matrix.name);
+        this.bounds.index_matrix(this.cube_indexes.name);
+        this.bounds.anim = this.pitch_node.name;
+        this.bounds.enable = 0;
+        
+        this.dummy_node = new JitterObject("jit.anim.node"); // Only used for quat to euler conversion
 	}
 
 	// Taking control over a new target
@@ -152,52 +171,82 @@ class Controller {
 		if (!this.camera_target.name) {
 			error("No camera defined. Cannot control object.\n");
 			return false;
-		}
+        }
 
+		// Make sure the requested object is a jit.anim.node or a controllable object (a jit.gl object with an anim attribute)
 		let new_target;
 		if (obj_name != undefined) {
-			new_target = get_anim_node(obj_name, this.pitch_node.name);
+            const p = new JitterObject("jit.proxy");
+            p.name = obj_name;
+            if (p.class === "jit_anim_node") {
+                new_target = obj_name;
+            } else if (p.class && is_controllable(p.class)) {
+                new_target = p.send("getanim");
+            };
+            this.target_type = p.class;
+            p.freepeer();
 		}
 
 		if (
 			new_target != undefined &&
 			(this.target.name != "" || this.target.name != new_target)
-		) {
+        ) {
+            // New object to target
 			this.control_obj_type = obj_type;
+            if (this.target.name != "") {
+                // If there is already a targeted object, we unbind it and make it preserve its transform
+                const world_pos = this.target.send("getworldpos");
+                const world_quat = this.target.send("getworldquat");
+                const world_scale = this.target.send("getworldscale");
+            
+                if (this.last_target_anim_node) {
+                    this.target.send("anim", this.last_target_anim_node);
+                } else {
+                    this.target.send("anim");
+                }
+                this.target.send("anim_reset");
+            
+                const local = this.world_to_local(this.last_target_anim_node, world_pos, world_quat);
+                this.target.send("position", local.pos);
+                this.target.send("quat", local.quat);
+                this.target.send("scale", world_scale);
+            }
 
-			if (this.target.name != "") {
-				const transform = this.target.send("getworldtransform"); // Get the current targets tranfsorm,
-				this.target.send("anim"); // Unbind it (makes it loose its transform part coming from Controller nodes)
-				this.target.send("anim_reset"); // Reset it
-				this.target.send("transform", transform); // And re-apply the transform so it stays in place
-			}
+            this.target.name = new_target; // Bind to new target
+            this.reset(); // Reset controller anim nodes
 
-			this.target.name = new_target; // Bind to new target
-			this.reset(); // Reset this.Controller anim nodes
-			this.main_node.position = this.target.send("getworldpos"); // Take the target position, rotatexyz and scale and pass them to this.Controller anim nodes
-			let target_rotatexyz = this.target.send("getrotatexyz");
-			this.main_node.rotatexyz = [0, target_rotatexyz[1], 0];
-			this.pitch_node.rotatexyz = [target_rotatexyz[0], 0, target_rotatexyz[2]];
-			this.pitch_node.scale = this.target.send("getscale");
+            // Get target transform
+            const world_pos = this.target.send("getworldpos");
+            const world_quat = this.target.send("getworldquat");
+            const world_scale = this.target.send("getworldscale");
+            
+            this.dummy_node.quat = world_quat;
+            const world_rotatexyz = this.dummy_node.rotatexyz;
 
-			// And select the new target
-			this.target.send("anim_reset");
-			this.target.send("anim", this.pitch_node.name);
+            // Apply it to our control nodes
+            this.main_node.position = world_pos;
+            this.main_node.rotatexyz = [0, world_rotatexyz[1], 0];
+            this.pitch_node.rotatexyz = [world_rotatexyz[0], 0, world_rotatexyz[2]];
+            this.pitch_node.scale = world_scale;
+
+            // And select the new target
+            this.last_target_anim_node = this.target.send("getanim");
+            this.target.send("anim_reset");
+            this.target.send("anim", this.pitch_node.name);
+            this.target.send("update_node"); //Sometimes targetting an anim.node parent with anim.node children doesn't work (children don't get their transform updated). This solves it for some reason.
 
 			// Apply specific rules depending on if controlling the camera or an object
             if (this.control_obj_type == "cam") {
-                // If this.camera() is set before the jit.world starts, there is a chance that camera_node is bound to the wrong node.
-                // this.camera(this.camera_target.name);
 				this.main_node.movemode = "local";
 				this.main_node.turnmode = "local";
 				this.pitch_node.turnmode = "parent";
-				this.set_flymode(this.flymode);
+                this.set_flymode(this.flymode);
 			} else {
 				this.flymode_applyed = false;
-				// When controlling an object, we convert the translation vector
-				// from screen space to world space in this.move
-				// So we need the cam base matrix
 				if (controlmode == 0) {
+    				// When controlling an object, we convert the translation vector
+    				// from screen space to world space in this.move
+    				// So we need the cam base matrix
     				this.main_node.movemode = "world";
     				this.main_node.turnmode = "world";
                     this.pitch_node.turnmode = "world";
@@ -209,13 +258,28 @@ class Controller {
 				}
 			}
 
-			// No target
-		} else if (obj_name == undefined && this.target.name != "") {
-			this.target.send("anim");
-			this.target.send("anim_reset");
-			this.target.send("transform", this.pitch_node.worldtransform);
-			this.target.name = "";
-		}
+        } else if (obj_name == undefined && this.target.name != "") {
+            // No target, unbinding previous target
+            const world_pos = this.target.send("getworldpos");
+            const world_quat = this.target.send("getworldquat");
+            const world_scale = this.target.send("getworldscale");
+        
+            if (this.last_target_anim_node) {
+                this.target.send("anim", this.last_target_anim_node);
+            } else {
+                this.target.send("anim");
+            }
+            this.target.send("anim_reset");
+        
+            const local = this.world_to_local(this.last_target_anim_node, world_pos, world_quat);
+            this.target.send("position", local.pos);
+            this.target.send("quat", local.quat);
+            this.target.send("scale", world_scale);
+        
+            this.last_target_anim_node = null;
+            this.target.name = "";
+        }
+		this.set_bounds();
         outlet(0, "control", obj_name, this.target.name);
         return true;
 	}
@@ -237,7 +301,6 @@ class Controller {
             const transform = cam_anim.send("getworldtransform");
             cam_anim.freepeer();
             // Then we attach our camera_node_implicit to the camera and restore its world transform
-            // this.camera_node_implicit.anim_reset();
             proxy.send("anim_reset");
             proxy.send("anim", this.camera_node_implicit.name);
             this.camera_node_implicit.transform = transform;
@@ -246,7 +309,7 @@ class Controller {
         if (target) {
             this.camera_node.name = target;
     		this.camera_node.send("animmode", "world");
-            this.get_cam_base_matrix();
+            // this.get_cam_base_matrix();
             this.camera_target.name = proxy.name;
             this.camera_target.class = proxy.class;
             this.camera_target.anim = proxy.anim;
@@ -295,12 +358,13 @@ class Controller {
 				this.cam_up,
 				this.cam_direction,
 			];
-		}
+        }
 	}
 
 	move(x, y, z) {
-		let translat_vec = [x, y, z];
-		if (this.control_obj_type == "obj" && controlmode == 0) {
+        let translat_vec = [x, y, z];
+        if (this.control_obj_type == "obj" && controlmode == 0) {
+            this.get_cam_base_matrix();
 			let cam_x_rot = this.camera_node.send("getrotatexyz")[0];
 			// Inverse translation direction if cam is upside down
 			if (cam_x_rot < -90 || cam_x_rot > 90) {
@@ -313,8 +377,9 @@ class Controller {
 	}
 
 	turn(x, y, z) {
-		let rot_vec = [x, y, z];
-		if (this.control_obj_type == "obj") {
+        let rot_vec = [x, y, z];
+        if (this.control_obj_type == "obj") {
+            this.get_cam_base_matrix();
 			rot_vec = multiplyMatrixVector(this.camera_base_matrix, [-x, 0, 0]);
 			rot_vec[1] = -y;
 		}
@@ -368,7 +433,8 @@ class Controller {
 
 	set_drawto(v) {
 		this.main_drive.drawto = v;
-		this.pitch_drive.drawto = v;
+        this.pitch_drive.drawto = v;
+		this.bounds.drawto = v;
 	}
 
 	set_ease(v) {
@@ -379,14 +445,47 @@ class Controller {
 
 	reset() {
 		this.main_node.anim_reset();
-		this.pitch_node.anim_reset();
+        this.pitch_node.anim_reset();
 	}
 
 	resync() {
 		if (this.target.name != "") {
 			this.control(this.target.name, this.control_obj_type);
 		}
-	}
+    }
+
+    set_show_bounds(v) {
+        this.show_bounds = v ? 1 : 0;
+        this.set_bounds();
+    }
+
+    set_bounds() {
+        if (this.show_bounds && this.control_obj_type === "obj") {
+            switch (this.target_type) {
+                case "jit_anim_node":
+                    this.bounds.color = [1, 0, 1, 1];
+                    break;
+                default:
+                    this.bounds.color = [1, 1, 1, 1];
+                    break;
+            }
+            this.bounds.enable = 1;
+        } else {
+            this.bounds.enable = 0;
+        }
+    }
+    
+    world_to_local(anim_node_name, world_pos, world_quat) {
+        if (!anim_node_name) {
+            return { pos: world_pos, quat: world_quat };
+        }
+        const parent = new JitterObject("jit.proxy");
+        parent.name = anim_node_name;
+        const pos = parent.send("worldtolocal", world_pos);
+        const quat = parent.send("worldtolocal_quat", world_quat);
+        parent.freepeer();
+        return { pos, quat };
+    }
 
 	destroy() {
 		if (this.target.name != "") {
@@ -398,7 +497,11 @@ class Controller {
 		this.main_drive.freepeer();
 		this.pitch_node.freepeer();
 		this.pitch_drive.freepeer();
-		this.target.freepeer();
+        this.target.freepeer();
+        this.cube_indexes.freepeer();
+        this.cube_matrix.freepeer();
+        this.bounds.freepeer();
+        this.dummy_node.freepeer();
 	}
 }
 
@@ -415,21 +518,13 @@ function set_camera(name) {
 // Select which object to control in view-space
 function control(obj_name) {
 	ctlr.control(obj_name, "obj");
-	if (show_bounds) {
-		do_show_bounds(0);
-	}
-	controlled_gl_objects = [];
-	get_gl_obj_controlled_by_ctlr();
-	if (show_bounds) {
-		do_show_bounds(show_bounds);
-	}
 }
 
 // Select which camera to control
 function control_camera(obj_name) {
 	if (obj_name !== undefined) {
 		const answer = ctlr.control(obj_name, "cam");
-		if (answer) do_show_bounds(0);
+		// if (answer) do_show_bounds(0);
 	}
 }
 
@@ -501,8 +596,7 @@ set_flymode.local = 1;
 
 function set_show_bounds(v) {
 	show_bounds = v == true;
-	// ctlr.show_bounds = show_bounds;
-	do_show_bounds(show_bounds);
+	ctlr.set_show_bounds(show_bounds);
 }
 set_show_bounds.local = 1;
 
@@ -512,20 +606,6 @@ function set_controlmode(v) {
     controlmode = new_val;
     ctlr.control(ctlr.target.name, ctlr.control_obj_type);
 }
-
-function do_show_bounds(v) {
-	const objects_without_bounds = [
-		"jit.gl.sketch",
-		"jit.gl.skybox",
-		"jit.gl.camera",
-	];
-	for (const obj of controlled_gl_objects) {
-		if (!objects_without_bounds.includes(obj.maxclass)) {
-			obj.setattr("drawbounds", v);
-		}
-	}
-}
-do_show_bounds.local = 1;
 
 function bang() {
 	outlet(0, ctlr.pitch_node.worldtransform);
@@ -549,55 +629,11 @@ function notifydeleted() {
 // HELPER METHODS
 /////////////////////////////////////////////
 
-function get_anim_node(jit_obj_name, ctlr_node) {
-	const proxy = new JitterObject("jit.proxy");
-	proxy.name = jit_obj_name;
-	const proxy_class = proxy.class;
-	proxy.freepeer();
-	if (proxy_class == "jit_anim_node") {
-		return jit_obj_name;
-	} else if (proxy_class != "" && is_controllable(proxy_class)) {
-		const context_anim = get_context_anim(jit_obj_name);
-		return get_top_level_anim_node(jit_obj_name, context_anim, ctlr_node);
-	}
-	return;
-}
-get_anim_node.local = 1;
-
 function is_controllable(obj_class) {
 	// Using jit.proxy syntax (ie 'jit_gl_mesh' and not 'jit.gl.mesh')
 	return ANIMABLE_GL_OBJECTS.includes(obj_class);
 }
 is_controllable.local = 1;
-
-function get_context_anim(jit_obj_name) {
-	// Get the first implicit jit.anim.node level for the object's rendering context
-	const proxy = new JitterObject("jit.proxy");
-	proxy.name = jit_obj_name;
-	proxy.name = proxy.send("getdrawto");
-	const context_name = proxy.send("getanim");
-	proxy.freepeer();
-	return context_name;
-}
-get_context_anim.local = 1;
-
-function get_top_level_anim_node(jit_obj_name, context_anim, ctlr_node) {
-	// Recursively get the top level jit.anim.node before reaching context_anim, or no anim.node, or this.pitch_node (if trying to controller currently controlled object)
-	const proxy = new JitterObject("jit.proxy");
-	proxy.name = jit_obj_name;
-	const parent_name = proxy.send("getanim").toString();
-	proxy.freepeer();
-	if (
-		parent_name == "" ||
-		parent_name == context_anim ||
-		parent_name == ctlr_node
-	) {
-		return jit_obj_name;
-	} else {
-		return get_top_level_anim_node(parent_name, context_anim, ctlr_node);
-	}
-}
-get_top_level_anim_node.local = 1;
 
 function get_top_level_patcher() {
 	let prev = 0;
@@ -609,37 +645,6 @@ function get_top_level_patcher() {
 	return prev ? prev.patcher : this.patcher;
 }
 get_top_level_patcher.local = 1;
-
-// Get gl object(s) controlled by ctlr (for the sole purpose of drawing bounds of selected object)
-function get_gl_obj_controlled_by_ctlr() {
-	top_level_patcher.applydeepif(
-		add_to_controlled_obj_list,
-		is_controlled_by_ctlr
-	);
-}
-get_gl_obj_controlled_by_ctlr.local = 1;
-
-function is_controlled_by_ctlr(obj) {
-	if (is_controllable(obj.maxclass.replaceAll(".", "_"))) {
-		const obj_anim = obj.getattr("anim");
-		if (obj_anim == ctlr.pitch_node.name) {
-			return true;
-		} else if (obj_anim != "") {
-			const proxy = new JitterObject("jit.proxy");
-			proxy.name = obj_anim;
-			const parent_name = proxy.send("getanim").toString();
-			proxy.freepeer();
-			return parent_name == ctlr.pitch_node.name;
-		}
-	}
-	return false;
-}
-is_controlled_by_ctlr.local = 1;
-
-function add_to_controlled_obj_list(obj) {
-	controlled_gl_objects.push(obj);
-}
-add_to_controlled_obj_list.local = 1;
 
 /////////////////////////////////////////////
 // MATHS
@@ -699,54 +704,12 @@ function ctx_callback(event) {
                 set_camera(camera);
             }
             break;
-        // case "mouse":   
-
-        //     break;
-        // case "mouseidle": 
-            
-        //     break;
-
-        // case "keydown":
-        //     // FF_Utils.Print("KEYDOWN", (event.args[0]));
-        //     break;
-
-        // case "willfree":
-        //     break;
-            
         default:
         //     post(event.args); post();
             break;
     }
 }
 ctx_callback.local = 1;
-
-// let implicitdrawto = "";
-// let explicitdrawto = false;
-// const implicit_tracker = new JitterObject("jit_gl_implicit");
-// const implicit_lstnr = new JitterListener(
-// 	implicit_tracker.name,
-// 	implicit_callback
-// );
-// const ctx_proxy = new JitterObject("jit.proxy");
-
-// function implicit_callback(event) {
-// 	if (!explicitdrawto && implicitdrawto != implicit_tracker.drawto[0]) {
-// 		// important! drawto is an array so get first element
-// 		implicitdrawto = implicit_tracker.drawto[0];
-// 		dosetdrawto(implicitdrawto);
-// 	}
-// }
-// implicit_callback.local = 1;
-
-// function setdrawto(val) {
-//     if (val) {
-//         explicitdrawto = true;
-//         dosetdrawto(val);
-//     } else {
-//         explicitdrawto = false;
-//     }
-// }
-// setdrawto.local = 1;
 
 function dosetdrawto(arg) {
 	if (arg === drawto || !arg) {
@@ -759,4 +722,4 @@ function dosetdrawto(arg) {
 	ctx_proxy.name = drawto;
 	
 }
-// dosetdrawto.local = 1;
+dosetdrawto.local = 1;
