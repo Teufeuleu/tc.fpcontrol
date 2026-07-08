@@ -1,5 +1,5 @@
 {
-	"name" : "tc.jit.anim.control",
+	"name" : "tc.fpcontrol",
 	"displayname" : "",
 	"version" : "0.0.1",
 	"author" : "Théophile Clet",
@@ -9,7 +9,7 @@
 	"website" : "",
 	"extends" : "",
 	"extensible" : 0,
-	"max_version_min" : "9.1.0",
+	"max_version_min" : "9.1.4",
 	"max_version_max" : "none",
 	"os" : 	{
 		"macintosh" : 		{

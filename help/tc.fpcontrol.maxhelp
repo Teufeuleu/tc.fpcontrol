@@ -9,49 +9,18 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 400.0, 100.0, 967.0, 848.0 ],
+        "rect": [ 34.0, 100.0, 1444.0, 848.0 ],
+        "openrect": [ 0.0, 0.0, 1181.43359375, 950.1171875 ],
+        "openrectmode": 0,
         "integercoordinates": 1,
         "boxes": [
-            {
-                "box": {
-                    "id": "obj-46",
-                    "maxclass": "message",
-                    "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 160.0, 70.0, 48.0, 22.0 ],
-                    "text": "fps 120"
-                }
-            },
-            {
-                "box": {
-                    "id": "obj-25",
-                    "maxclass": "message",
-                    "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 287.0, 86.0, 107.0, 22.0 ],
-                    "text": "sendnode getanim"
-                }
-            },
-            {
-                "box": {
-                    "id": "obj-22",
-                    "maxclass": "message",
-                    "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 203.0, 78.0, 41.0, 22.0 ],
-                    "text": "fps 30"
-                }
-            },
             {
                 "box": {
                     "id": "obj-21",
                     "maxclass": "newobj",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 1408.0, 188.0, 88.0, 22.0 ],
+                    "patching_rect": [ 935.0, 222.0, 88.0, 22.0 ],
                     "text": "s object_select"
                 }
             },
@@ -83,7 +52,7 @@
                     "maxclass": "newobj",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 1312.0, 188.0, 93.0, 22.0 ],
+                    "patching_rect": [ 839.0, 222.0, 93.0, 22.0 ],
                     "text": "s to_tc.fpcontrol"
                 }
             },
@@ -893,7 +862,7 @@
                             }
                         ]
                     },
-                    "patching_rect": [ 1312.0, 155.0, 115.0, 22.0 ],
+                    "patching_rect": [ 839.0, 189.0, 115.0, 22.0 ],
                     "text": "p gamepad_buttons"
                 }
             },
@@ -1192,7 +1161,7 @@
                             "modernui": 1
                         },
                         "classnamespace": "box",
-                        "rect": [ 573.0, 140.0, 866.0, 755.0 ],
+                        "rect": [ 746.0, 143.0, 866.0, 755.0 ],
                         "integercoordinates": 1,
                         "boxes": [
                             {
@@ -1974,7 +1943,7 @@
                     "maxclass": "comment",
                     "numinlets": 1,
                     "numoutlets": 0,
-                    "patching_rect": [ 36.0, 654.0, 257.0, 66.0 ],
+                    "patching_rect": [ 61.0, 658.0, 257.0, 66.0 ],
                     "text": "'control' outputs the given object name to be controlled (jit.gl or jit.anim.node), followed by the actual one being controlled (jit.anim.node)"
                 }
             },
@@ -2511,11 +2480,12 @@
                 "box": {
                     "color": [ 1.0, 0.612, 0.0, 1.0 ],
                     "id": "obj-189",
+                    "linecount": 6,
                     "maxclass": "newobj",
                     "numinlets": 1,
                     "numoutlets": 2,
                     "outlettype": [ "", "" ],
-                    "patching_rect": [ 720.0, 121.0, 611.0, 22.0 ],
+                    "patching_rect": [ 720.0, 77.0, 138.0, 89.0 ],
                     "text": "gamepad.drive @l_deadzone 0.15 @r_deadzone 0.15 @l_sensitivity 0.4 @r_sensitivity 3 @trigger_sensitivity 0.4"
                 }
             },
@@ -2579,12 +2549,14 @@
             {
                 "box": {
                     "dontreplace": 1,
+                    "fontface": 1,
+                    "fontsize": 16.0,
                     "id": "obj-60",
                     "maxclass": "message",
                     "numinlets": 2,
                     "numoutlets": 1,
                     "outlettype": [ "" ],
-                    "patching_rect": [ 53.0, 630.0, 222.0, 22.0 ]
+                    "patching_rect": [ 53.0, 630.0, 415.0, 26.0 ]
                 }
             },
             {
@@ -2618,7 +2590,7 @@
                     "numinlets": 1,
                     "numoutlets": 3,
                     "outlettype": [ "", "", "" ],
-                    "patching_rect": [ 720.0, 81.0, 59.0, 22.0 ],
+                    "patching_rect": [ 720.0, 36.0, 59.0, 22.0 ],
                     "text": "gamepad"
                 }
             },
@@ -2783,18 +2755,6 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-3", 0 ],
-                    "source": [ "obj-22", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-3", 0 ],
-                    "source": [ "obj-25", 0 ]
-                }
-            },
-            {
-                "patchline": {
                     "destination": [ "obj-56", 0 ],
                     "source": [ "obj-26", 0 ]
                 }
@@ -2834,12 +2794,6 @@
                 "patchline": {
                     "destination": [ "obj-109", 0 ],
                     "source": [ "obj-4", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-3", 0 ],
-                    "source": [ "obj-46", 0 ]
                 }
             },
             {
