@@ -19,12 +19,23 @@ GNU General Public License for more details:
 */
 
 autowatch = 1;
-
 outlets = 2;
+
+const g = new Global("tc.fpcontrol");
+const instance = (() => {
+    if (g.instance_count) {
+        g.instance_count += 1
+    } else {
+        g.instance_count = 1;
+    }
+    return g.instance_count
+})();
 
 let world_bangs = false; // is the world banging?
 const ctx_finder = require("implicit.context.js");
 ctx_finder.register_drawto(this, dosetdrawto, set_root);
+
+include("FF_Vector.js");
 
 var ease = 0.1;
 declareattribute({
@@ -105,14 +116,14 @@ class Controller {
 
 		this.root_anim_node = null; // The implicit drawto context anim node
 
-        this.world_up = [0, 1, 0];
+        this.world_up = new FF_Vector(0, 1, 0);
         this.camera_target = {
             name: '',
             class: '',
             anim: '',
         }
         this.camera_node_implicit = new JitterObject("jit.anim.node"); // Used if camera isn't attached to an anim.node (using the pre-made anim node of a jit.gl.camera doesn't work for some reason, so we use our own "implicit" one)
-        this.camera_node_implicit.name = "camera_node_implicit";
+        this.camera_node_implicit.name = "camera_node_implicit_" + instance;
         this.camera_node = new JitterObject("jit.proxy"); // Either proxy of a jit.anim.node defined by user, or of this.camera_node_implicit
 		this.cam_direction, this.cam_up, this.cam_right;
 
@@ -133,7 +144,7 @@ class Controller {
 
 		// pitch_node used with pitch_drive for pitch rotation (over the objects local x axis)
         this.pitch_node = new JitterObject("jit.anim.node");
-        this.pitch_node.name = "fp_pitch_node";
+        this.pitch_node.name = "fp_pitch_node_" + instance;
 		this.pitch_node.anim = this.main_node.name;
 		this.pitch_node.turnmode = "parent";
 		this.pitch_node.movemode = "parent";
@@ -168,7 +179,7 @@ class Controller {
 
 	// Taking control over a new target
 	control(obj_name, obj_type) {
-		if (!this.camera_target.name) {
+		if (obj_name && !this.camera_target.name) {
 			error("No camera defined. Cannot control object.\n");
 			return false;
         }
@@ -348,11 +359,15 @@ class Controller {
 
 	get_cam_base_matrix() {
 		if (this.camera_node.name != "") {
-            this.cam_direction = this.camera_node.send("getdirection");
-			this.cam_direction[1] = 0;
-			this.cam_direction = normalize(this.cam_direction);
-			this.cam_right = normalize(cross(this.cam_direction, this.world_up));
-			this.cam_up = normalize(cross(this.cam_right, this.cam_direction));
+            this.cam_direction = new FF_Vector(this.camera_node.send("getdirection"));
+			this.cam_direction.y = 0;
+            this.cam_direction.normalize();
+            this.cam_right = this.cam_direction.crossNew(this.world_up);
+            this.cam_right.normalize();
+            // this.cam_right = normalize(cross(this.cam_direction, this.world_up));
+            this.cam_up = this.cam_right.crossNew(this.cam_direction);
+            this.cam_up.normalize();
+			// this.cam_up = normalize(cross(this.cam_right, this.cam_direction));
 			this.camera_base_matrix = [
 				this.cam_right,
 				this.cam_up,
@@ -371,7 +386,7 @@ class Controller {
 				x *= -1;
 				z *= -1;
 			}
-			translat_vec = multiplyMatrixVector(this.camera_base_matrix, [x, 0, -z]);
+			translat_vec = multiplyMatrixVector(this.camera_base_matrix, new FF_Vector(x, 0, -z));
 		}
 		this.main_drive.move(translat_vec[0], y, translat_vec[2]);
 	}
@@ -380,7 +395,7 @@ class Controller {
         let rot_vec = [x, y, z];
         if (this.control_obj_type == "obj") {
             this.get_cam_base_matrix();
-			rot_vec = multiplyMatrixVector(this.camera_base_matrix, [-x, 0, 0]);
+			rot_vec = multiplyMatrixVector(this.camera_base_matrix, new FF_Vector(-x, 0, 0));
 			rot_vec[1] = -y;
 		}
 		if (this.flymode && this.control_obj_type == "cam") {
@@ -619,6 +634,8 @@ function loadbang() {
 }
 
 function notifydeleted() {
+    control();
+    set_camera();
 	ctlr.destroy();
 	ctx_finder.dispose();
 	if (ctx_lstnr) ctx_lstnr.freepeer();
@@ -650,32 +667,11 @@ get_top_level_patcher.local = 1;
 // MATHS
 /////////////////////////////////////////////
 
-function normalize(v) {
-	const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-	if (len === 0) return v;
-	return [v[0] / len, v[1] / len, v[2] / len];
-}
-normalize.local = 1;
-
-function cross(a, b) {
-	return [
-		a[1] * b[2] - a[2] * b[1],
-		a[2] * b[0] - a[0] * b[2],
-		a[0] * b[1] - a[1] * b[0],
-	];
-}
-cross.local = 1;
-
-function dot(a, b) {
-	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-dot.local = 1;
-
 function multiplyMatrixVector(matrix, vector) {
 	return [
-		dot(matrix[0], vector),
-		dot(matrix[1], vector),
-		dot(matrix[2], vector),
+		matrix[0].dot(vector),
+		matrix[1].dot(vector),
+		matrix[2].dot(vector),
 	];
 }
 multiplyMatrixVector.local = 1;
